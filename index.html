@@ -1025,6 +1025,33 @@
             color: var(--accent-amber);
         }
 
+        .smc-grade-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .smc-grade-badge.grade-aplus {
+            background: rgba(16, 185, 129, 0.25);
+            color: var(--accent-green);
+        }
+
+        .smc-grade-badge.grade-a {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-green);
+        }
+
+        .smc-grade-badge.grade-b {
+            background: rgba(0, 217, 255, 0.15);
+            color: var(--accent-cyan);
+        }
+
+        .smc-grade-badge.grade-notrade {
+            background: rgba(100, 116, 139, 0.15);
+            color: var(--text-muted);
+        }
+
         .analysis-header {
             display: flex;
             justify-content: space-between;
@@ -3079,11 +3106,11 @@
                                 <div class="volatility-bar">
                                     <div class="volatility-fill ${analysis.volatilityLevel}" data-volatility="${analysis.volatility}"></div>
                                 </div>
-                                ${analysis.volatility}%
+                                ${analysis.volatility.toFixed(1)}%
                             </td>
                             <td>${analysis.rsi.toFixed(1)}</td>
                             <td>${analysis.macd}</td>
-                            <td>${analysis.smcGrade}</td>
+                            <td><span class="smc-grade-badge ${this.smcGradeClass(analysis.smcGrade)}">${analysis.smcGrade}</span></td>
                             <td><span class="signal-badge ${analysis.signal}">${analysis.signal}</span></td>
                             <td>${analysis.confidence}%</td>
                         </tr>
@@ -3315,6 +3342,11 @@
                 if (score === 5) return 'A';
                 if (score === 4) return 'B';
                 return 'No Trade';
+            }
+
+            smcGradeClass(grade) {
+                const map = { 'A+': 'grade-aplus', 'A': 'grade-a', 'B': 'grade-b' };
+                return map[grade] || 'grade-notrade';
             }
 
             addStrategy() {
