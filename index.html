@@ -1743,6 +1743,7 @@
                                         <th>Volatility</th>
                                         <th>RSI</th>
                                         <th>MACD</th>
+                                        <th>SMC Grade</th>
                                         <th>Signal</th>
                                         <th>Confidence</th>
                                     </tr>
@@ -3082,6 +3083,7 @@
                             </td>
                             <td>${analysis.rsi.toFixed(1)}</td>
                             <td>${analysis.macd}</td>
+                            <td>${analysis.smcGrade}</td>
                             <td><span class="signal-badge ${analysis.signal}">${analysis.signal}</span></td>
                             <td>${analysis.confidence}%</td>
                         </tr>
@@ -3210,6 +3212,20 @@
                     confidence = 40 + Math.random() * 20;
                 }
 
+                // Incorporate SMC strategy analysis
+                const smc = this.analyzeSMCStrategy(data);
+                if (smc.action !== 'HOLD') {
+                    const smcSignal = smc.action === 'SELL/PUT' ? 'sell' : smc.action === 'BUY/CALL' ? 'buy' : null;
+                    if (smcSignal && smcSignal === signal) {
+                        // SMC confirms existing signal — boost confidence
+                        confidence = Math.min(100, confidence + smc.score * 2);
+                    } else if (smcSignal && signal === 'hold') {
+                        // No existing signal — let SMC provide one
+                        signal = smcSignal;
+                        confidence = Math.min(100, 50 + smc.score * 5);
+                    }
+                }
+
                 return {
                     change,
                     trend,
@@ -3218,7 +3234,8 @@
                     rsi: isNaN(rsi) ? 50 : rsi,
                     macd: macdSignal,
                     signal,
-                    confidence: Math.floor(confidence)
+                    confidence: Math.floor(confidence),
+                    smcGrade: smc.grade
                 };
             }
 
