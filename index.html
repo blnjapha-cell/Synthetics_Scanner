@@ -3222,6 +3222,84 @@
                 };
             }
 
+            getATR(candles) {
+                if (candles.length < 2) return 0;
+                const period = Math.min(14, candles.length - 1);
+                let trSum = 0;
+                for (let i = candles.length - period; i < candles.length; i++) {
+                    const prev = candles[i - 1];
+                    const curr = candles[i];
+                    const tr = Math.max(
+                        curr.high - curr.low,
+                        Math.abs(curr.high - prev.close),
+                        Math.abs(curr.low - prev.close)
+                    );
+                    trSum += tr;
+                }
+                return trSum / period;
+            }
+
+            analyzeSMCStrategy(candles) {
+                if (candles.length < 20) return { score: 0, grade: 'No Trade' };
+
+                let checks = 0;
+                const current = candles[candles.length - 1];
+                const previous = candles[candles.length - 2];
+                const lookback = candles.slice(-20, -2); // Recent history
+
+                // 1. Find Equal Highs/Lows (Liquidity Pools)
+                // Tolerance: Highs within 0.05% of each other
+                const swingHighs = lookback.filter((c, i, arr) => i > 0 && i < arr.length - 1 && c.high >= arr[i-1].high && c.high >= arr[i+1].high);
+                const hasEqualHighs = swingHighs.some(h1 => swingHighs.some(h2 => h1 !== h2 && Math.abs(h1.high - h2.high) / h1.high < 0.0005));
+                if (hasEqualHighs) checks++;
+
+                // 2. Detect Wick Sweep (Liquidity Grab)
+                // Current high is higher than the liquidity pool, but close is lower
+                const liquidityLevel = swingHighs.length > 0 ? Math.max(...swingHighs.map(h => h.high)) : current.high;
+                const isWickSweep = current.high > liquidityLevel && current.close < liquidityLevel;
+                if (isWickSweep) checks++;
+
+                // 3. Confirm Displacement + Break of Structure (BOS)
+                // A strong candle moving opposite to the sweep
+                const isDisplacement = Math.abs(current.close - current.open) > (this.getATR(candles) * 1.5);
+                const recentSwingLow = Math.min(...lookback.map(c => c.low));
+                const isBOS = current.close < recentSwingLow; // For a Sell setup
+                if (isDisplacement && isBOS) checks++;
+
+                // 4. Find the Order Block (OB)
+                // The "up" candle before the move down (for a Sell)
+                const orderBlock = {
+                    top: previous.high,
+                    bottom: previous.low,
+                    type: 'bearish'
+                };
+                if (orderBlock) checks++;
+
+                // 5. Wait for Pullback into OB
+                // Checking if price has returned to touch the OB range
+                const isPullback = current.high >= orderBlock.bottom && current.low <= orderBlock.top;
+                if (isPullback) checks++;
+
+                // 6. Buy-side vs Sell-side Sweep
+                // Logic to determine direction
+                const direction = isWickSweep && current.high > liquidityLevel ? 'SELL/PUT' : 'BUY/CALL';
+                if (direction) checks++;
+
+                return {
+                    score: checks,
+                    grade: this.calculateGrade(checks),
+                    action: checks >= 4 ? direction : 'HOLD',
+                    details: { hasEqualHighs, isWickSweep, isBOS, isPullback }
+                };
+            }
+
+            calculateGrade(score) {
+                if (score === 6) return 'A+';
+                if (score === 5) return 'A';
+                if (score === 4) return 'B';
+                return 'No Trade';
+            }
+
             addStrategy() {
                 const name = document.getElementById('new-strategy-name').value;
                 const type = document.getElementById('new-strategy-type').value;
